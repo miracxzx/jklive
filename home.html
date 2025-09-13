@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en" class="bg-slate-900 text-white antialiased">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Harekat JK Player</title>
+    <!-- Poppins Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Hls.js for HLS playback -->
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@1.4.12"></script>
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        /* Custom scrollbar for channel list */
+        .channel-list::-webkit-scrollbar {
+            width: 8px;
+        }
+        .channel-list::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+        .channel-list::-webkit-scrollbar-thumb {
+            background-color: #475569;
+            border-radius: 4px;
+        }
+        .animate-pulse-slow {
+            animation: pulse-slow 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulse-slow {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: .5;
+            }
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8 flex flex-col items-center">
+    <div class="max-w-4xl w-full flex flex-col gap-8">
+        <!-- Main Video Player Section -->
+        <div class="bg-slate-800 rounded-3xl shadow-2xl p-4 md:p-6 border border-slate-700">
+            <div class="flex flex-col items-center mb-4">
+                <!-- Logonu buraya ekle. harekat_jk_logo.png adlı dosyayı bu HTML dosyasının yanına koymalısın. -->
+                <img src="harekat_jk_logo.png" alt="Player Logo" class="h-30 md:h-32 w-auto mb-0 rounded-lg">
+            </div>
+            <div class="relative w-full aspect-video bg-black rounded-2xl overflow-hidden">
+                <video id="video" class="w-full h-full" controls></video>
+                <div id="status-message" class="absolute inset-0 flex flex-col items-center justify-center p-4 bg-black bg-opacity-70 text-center transition-opacity duration-300 pointer-events-none">
+                    <p class="text-white text-lg md:text-xl font-medium animate-pulse-slow">İzlemek istediğiniz kanalı seçin</p>
+                    <p id="channel-title" class="text-white text-sm md:text-base font-semibold mt-2 hidden"></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Channel List Section -->
+        <div class="bg-slate-800 rounded-3xl shadow-2xl p-4 md:p-6 border border-slate-700">
+            <h2 class="text-xl md:text-2xl font-semibold mb-4 text-white">Kanallar
+            </h2>
+            <div id="channel-list-container" class="channel-list max-h-[70vh] overflow-y-auto">
+                <!-- Channel groups will be rendered here by JavaScript -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Kullanıcının kendi logosunu yüklemesini sağlayan kısım kaldırıldı, çünkü logo artık doğrudan koda gömüldü.
+        const m3uContent = `
+#EXTM3U
+#EXTINF:-1 tvg-id="bein_sport" tvg-name="BeIN Sport 1" tvg-language="Turkish" tvg-country="TR" tvg-logo="https://seeklogo.com/images/B/bein-sports-1-logo-4E5E4AE6B8-seeklogo.com.png" group-title="BeINSports",BeIN Sport 1
+#EXTVLCOPT:http-user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_5)
+#EXTVLCOPT:http-referrer=https://monotv523.com/
+https://one.f5f2f3be7f6de0a7.click/live/selcukobs1/playlist.m3u8
+
+#EXTINF:-1 tvg-id="bein_sport" tvg-name="BeIN Sport 1 Yedek" tvg-language="Turkish" tvg-country="TR" tvg-logo="https://seeklogo.com/images/B/bein-sports-1-logo-4E5E4AE6B8-seeklogo.com.png" group-title="BeINSports",BeIN Sport 1 Yedek
+https://aged-fire-dd6b.freelinks.workers.dev/https://fener2.demoscript.buzz/hls/bein-sports-1.m3u8
+
+#EXTINF:-1 tvg-id="bein_sport" tvg-name="BeIN Sport 2" tvg-language="Turkish" tvg-country="TR" tvg-logo="https://seeklogo.com/images/B/bein-sports-2-logo-56F85DDE25-seeklogo.com.png" group-title="BeINSports",BeIN Sport 2
+#EXTVLCOPT:http-user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_5)
+#EXTVLCOPT:http-referrer=https://monotv523.com/
+https://one.f5f2f3be7f6de0a7.click/live/bein-sports-2/playlist.m3u8
+
+#EXTINF:-1 tvg-id="bein_sport" tvg-name="BeIN Sport 2 Yedek" tvg-language="Turkish" tvg-country="TR" tvg-logo="https://seeklogo.com/images/B/bein-sports-2-logo-56F85DDE25-seeklogo.com.png" group-title="BeINSports",BeIN Sport 2 Yedek
+https://aged-fire-dd6b.freelinks.workers.dev/https://fener2.demoscript.buzz/hls/bein-sports-2.m3u8
+
+#EXTINF:-1 tvg-id="bein_sport" tvg-name="BeIN Sport 3" tvg-language="Turkish" tvg-country="TR" tvg-logo="https://seeklogo.com/images/B/bein-sports-3-logo-42227D7D66-seeklogo.com.png" group-title="BeINSports",BeIN Sport 3
+#EXTVLCOPT:http-user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_5)
+#EXTVLCOPT:http-referrer=https://monotv523.com/
+https://one.f5f2f3be7f6de0a7.click/live/bein-sports-3/playlist.m3u8
+
+#EXTINF:-1 tvg-id="bein_sport" tvg-name="BeIN Sport 3 Yedek" tvg-language="Turkish" tvg-country="TR" tvg-logo="https://seeklogo.com/images/B/bein-sports-3-logo-42227D7D66-seeklogo.com.png" group-title="BeINSports",BeIN Sport 3 Yedek
+https://aged-fire-dd6b.freelinks.workers.dev/https://fener2.demoscript.buzz/hls/bein-sports-3.m3u8
+
+#EXTINF:-1 tvg-id="bein_sport" tvg-name="BeIN Sport 4" tvg-language="Turkish" tvg-country="TR" tvg-logo="https://i.hizliresim.com/cww8drm.png" group-title="BeINSports",BeIN Sport 4
+#EXTVLCOPT:http-user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_5)
+#EXTVLCOPT:http-referrer=https://monotv523.com/
+https://one.f5f2f3be7f6de0a7.click/live/bein-sports-4/playlist.m3u8
+
+#EXTINF:-1 tvg-id="bein_sport" tvg-name="BeIN Sport 4 Yedek" tvg-language="Turkish" tvg-country="TR" tvg-logo="https://i.hizliresim.com/cww8drm.png" group-title="BeINSports",BeIN Sport 4 Yedek
+https://aged-fire-dd6b.freelinks.workers.dev/https://fener2.demoscript.buzz/hls/bein-sports-4.m3u8
+
+#EXTINF:-1 tvg-id="bein_sport" tvg-name="BeIN Sport 5" tvg-language="Turkish" tvg-country="TR" tvg-logo="https://i.hizliresim.com/63gjk4y.png" group-title="BeINSports",BeIN Sport 5
+#EXTVLCOPT:http-user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_5)
+#EXTVLCOPT:http-referrer=https://monotv523.com/
+https://one.f5f2f3be7f6de0a7.click/live/bein-sports-5/playlist.m3u8
+
+#EXTINF:-1 tvg-id="bein_sport" tvg-name="BeIN Sport MAX 1" tvg-language="Turkish" tvg-country="TR" tvg-logo="https://assets.bein.com/mena/sites/3/2015/06/beIN_SPORTS_MAX1_DIGITAL_Mono.png" group-title="BeINSports",BeIN Sport MAX 1
+#EXTVLCOPT:http-user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_5)
+#EXTVLCOPT:http-referrer=https://monotv523.com/
+https://one.f5f2f3be7f6de0a7.click/live/bein-sports-max-1/playlist.m3u8
+
+#EXTINF:-1 tvg-id="bein_sport" tvg-name="BeIN Sport MAX 1 Yedek" tvg-language="Turkish" tvg-country="TR" tvg-logo="https://assets.bein.com/mena/sites/3/2015/06/beIN_SPORTS_MAX1_DIGITAL_Mono.png" group-title="BeINSports",BeIN Sport MAX 1 Yedek
+http://rhsbjv7k.tvclub.xyz/iptv/VEXVELA6Z7PXH6/6824/index.m3u8
+
+#EXTINF:-1 tvg-id="bein_sport" tvg-name="BeIN Sport MAX 2" tvg-language="Turkish" tvg-country="TR" tvg-logo="https://tvprofil.com/img/kanali-logo/beIN_Sports_MAX_2_TR_logo_v2.png?1734011568" group-title="BeINSports",BeIN Sport MAX 2
+#EXTVLCOPT:http-user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_5)
+#EXTVLCOPT:http-referrer=https://monotv523.com/
+https://one.f5f2f3be7f6de0a7.click/live/bein-sports-max-2/playlist.m3u8
+
+#EXTINF:-1 tvg-id="bein_sport" tvg-name="BeIN Sport MAX 2 Yedek" tvg-language="Turkish" tvg-country="TR" tvg-logo="https://tvprofil.com/img/kanali-logo/beIN_Sports_MAX_2_TR_logo_v2.png?1734011568" group-title="BeINSports",BeIN Sport MAX 2 Yedek
+http://rhsbjv7k.tvclub.xyz/iptv/VEXVELA6Z7PXH6/19066/index.m3u8
+
+#EXTINF:-1 tvg-name="Tabii Spor" tvg-language="Turkish" tvg-country="TR" tvg-id="TabiiSpor" tvg-logo="https://cms-tabii-public-image.tabii.com/int/w500/43023.jpeg" group-title="TabiiSpor",Tabii Spor
+https://beert7sqimrk0bfdupfgn6qew.medya.trt.com.tr/master.m3u8
+
+#EXTINF:-1 tvg-name="Tabii Spor 1" tvg-language="Turkish" tvg-country="TR" tvg-id="TabiiSpor1" tvg-logo="https://cms-tabii-public-image.tabii.com/int/w500/43005.jpeg" group-title="TabiiSpor",Tabii Spor 1
+https://iaqzu4szhtzeqd0edpsayinle.medya.trt.com.tr/master.m3u8
+
+#EXTINF:-1 tvg-name="Tabii Spor 2" tvg-language="Turkish" tvg-country="TR" tvg-id="TabiiSpor2" tvg-logo="https://cms-tabii-public-image.tabii.com/int/w500/43008.jpeg" group-title="TabiiSpor",Tabii Spor 2
+https://klublsslubcgyiz7zqt5bz8il.medya.trt.com.tr/master.m3u8
+
+#EXTINF:-1 tvg-name="Tabii Spor 3" tvg-language="Turkish" tvg-country="TR" tvg-id="TabiiSpor3" tvg-logo="https://cms-tabii-public-image.tabii.com/int/w500/43011.jpeg" group-title="TabiiSpor",Tabii Spor 3
+https://ujnf69op16x2fiiywxcnx41q8.medya.trt.com.tr/master.m3u8
+
+#EXTINF:-1 tvg-name="Tabii Spor 4" tvg-language="Turkish" tvg-country="TR" tvg-id="TabiiSpor4" tvg-logo="https://cms-tabii-public-image.tabii.com/int/w500/43014.jpeg" group-title="TabiiSpor",Tabii Spor 4
+https://bfxy3jgeydpbphtk8qfqwm3hr.medya.trt.com.tr/master.m3u8
+
+#EXTINF:-1 tvg-name="Tabii Spor 5" tvg-language="Turkish" tvg-country="TR" tvg-id="TabiiSpor5" tvg-logo="https://cms-tabii-public-image.tabii.com/int/w500/43017.jpeg" group-title="TabiiSpor",Tabii Spor 5
+https://z3mmimwz148csv0vaxtphqspf.medya.trt.com.tr/master.m3u8
+
+#EXTINF:-1 tvg-name="Tabii Spor 6" tvg-language="Turkish" tvg-country="TR" tvg-id="TabiiSpor6" tvg-logo="https://cms-tabii-public-image.tabii.com/int/w500/43020.jpeg" group-title="TabiiSpor",Tabii Spor 6
+https://vbtob9hyq58eiophct5qctxr2.medya.trt.com.tr/master.m3u8
+
+#EXTINF:-1 tvg-name="Tabii Spor 7" tvg-language="Turkish" tvg-country="TR" tvg-id="TabiiSpor7" tvg-logo="https://cms-rotf-api.tabii.com/r/int/w500/51612_0-0-1919-1080.jpeg" group-title="TabiiSpor",Tabii Spor 7
+https://rxnE77JupTdEYKE3TytvGQWYh.medya.trt.com.tr/master.m3u8
+
+#EXTINF:-1 tvg-id="ssport" tvg-name="S Sport" tvg-language="Turkish" tvg-country="TR" tvg-logo="https://feo.kablowebtv.com/resize/168A635D265A4328C2883FB4CD8FF/0/0/Vod/HLS/f0f167c1-f2b1-41d0-9713-75c315820713.png" group-title="SSports",S Sport 1
+#EXTVLCOPT:http-referrer=https://monotv523.com/
+https://four.zirvestream14.cfd/yayinss.m3u8
+
+#EXTINF:-1 tvg-id="ssport" tvg-name="S Sport 2" tvg-language="Turkish" tvg-country="TR" tvg-logo="https://feo.kablowebtv.com/resize/168A635D265A4328C2883FB4CD8FF/0/0/Vod/HLS/80f415bc-60e4-4dd9-8dc6-6e51d88f6abb.png" group-title="SSports",S Sport 2
+#EXTVLCOPT:http-referrer=https://monotv523.com/
+https://four.zirvestream14.cfd/yayinss2.m3u8
+
+#EXTINF:-1 tvg-id="exxenspor" tvg-name="Exxen Spor 1" tvg-language="Turkish" tvg-country="TR" tvg-logo="https://i.hizliresim.com/ioxh9th.png" group-title="ExxenSpor",Exxen Spor 1
+#EXTVLCOPT:http-user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_5)
+#EXTVLCOPT:http-referrer=https://monotv523.com/
+https://four.zirvestream14.cfd/yayinex1.m3u8
+
+#EXTINF:-1 tvg-id="exxenspor" tvg-name="Exxen Spor 2" tvg-language="Turkish" tvg-country="TR" tvg-logo="https://i.hizliresim.com/ioxh9th.png" group-title="ExxenSpor",Exxen Spor 2
+#EXTVLCOPT:http-user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_5)
+#EXTVLCOPT:http-referrer=https://monotv523.com/
+https://four.zirvestream14.cfd/yayinex2.m3u8
+
+#EXTINF:-1 tvg-id="exxenspor" tvg-name="Exxen Spor 3" tvg-language="Turkish" tvg-country="TR" tvg-logo="https://i.hizliresim.com/ioxh9th.png" group-title="ExxenSpor",Exxen Spor 3
+#EXTVLCOPT:http-user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_5)
+#EXTVLCOPT:http-referrer=https://monotv523.com/
+https://four.zirvestream14.cfd/yayinex3.m3u8
+
+#EXTINF:-1 tvg-id="exxenspor" tvg-name="Exxen Spor 4" tvg-language="Turkish" tvg-country="TR" tvg-logo="https://i.hizliresim.com/ioxh9th.png" group-title="ExxenSpor",Exxen Spor 4
+#EXTVLCOPT:http-user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_5)
+#EXTVLCOPT:http-referrer=https://monotv523.com/
+https://four.zirvestream14.cfd/yayinex4.m3u8
+
+#EXTINF:-1 tvg-id="exxenspor" tvg-name="Exxen Spor 5" tvg-language="Turkish" tvg-country="TR" tvg-logo="https://i.hizliresim.com/ioxh9th.png" group-title="ExxenSpor",Exxen Spor 5
+#EXTVLCOPT:http-user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_5)
+#EXTVLCOPT:http-referrer=https://monotv523.com/
+https://four.zirvestream14.cfd/yayinex5.m3u8
+
+#EXTINF:-1 tvg-id="exxenspor" tvg-name="Exxen Spor 6" tvg-language="Turkish" tvg-country="TR" tvg-logo="https://i.hizliresim.com/ioxh9th.png" group-title="ExxenSpor",Exxen Spor 6
+#EXTVLCOPT:http-user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_5)
+#EXTVLCOPT:http-referrer=https://monotv523.com/
+https://four.zirvestream14.cfd/yayinex6.m3u8
+
+#EXTINF:-1 tvg-id="exxenspor" tvg-name="Exxen Spor 7" tvg-language="Turkish" tvg-country="TR" tvg-logo="https://i.hizliresim.com/ioxh9th.png" group-title="ExxenSpor",Exxen Spor 7
+#EXTVLCOPT:http-user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_5)
+#EXTVLCOPT:http-referrer=https://monotv523.com/
+https://four.zirvestream14.cfd/yayinex7.m3u8
+
+#EXTINF:-1 tvg-id="exxenspor" tvg-name="Exxen Spor 8" tvg-language="Turkish" tvg-country="TR" tvg-logo="https://i.hizliresim.com/ioxh9th.png" group-title="ExxenSpor",Exxen Spor 8
+#EXTVLCOPT:http-user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_5)
+#EXTVLCOPT:http-referrer=https://monotv523.com/
+https://four.zirvestream14.cfd/yayinex8.m3u8
+
+#EXTINF:-1 tvg-id="spor_smart" tvg-name="Spor Smart 1" tvg-language="Turkish" tvg-country="TR" tvg-logo="https://image.milimaj.com/i/milliyet/75/869x477/61013bfb86b24419fc684867.jpg" group-title="SporSmart",Spor Smart 1
+#EXTVLCOPT:http-user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_5)
+#EXTVLCOPT:http-referrer=https://monotv523.com/
+https://four.zirvestream14.cfd/yayinsmarts.m3u8
+
+#EXTINF:-1 tvg-id="spor_smart" tvg-name="Spor Smart 2" tvg-language="Turkish" tvg-country="TR" tvg-logo="https://image.milimaj.com/i/milliyet/75/869x477/61013bfb86b24419fc684867.jpg" group-title="SporSmart",Spor Smart 2
+#EXTVLCOPT:http-user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_5)
+#EXTVLCOPT:http-referrer=https://monotv523.com/
+https://four.zirvestream14.cfd/yayinsms2.m3u8
+
+#EXTINF:-1 tvg-id="tivibu_spor" tvg-name="Tivibu Spor 1" tvg-language="Turkish" tvg-country="TR" tvg-logo="https://upload.wikimedia.org/wikipedia/tr/3/36/Tivibu_spor_logosu.jpg" group-title="TivibuSpor",Tivibu Spor 1
+#EXTVLCOPT:http-user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_5)
+#EXTVLCOPT:http-referrer=https://monotv523.com/
+https://four.zirvestream14.cfd/yayint1.m3u8
+
+#EXTINF:-1 tvg-id="tivibu_spor" tvg-name="Tivibu Spor 2" tvg-language="Turkish" tvg-country="TR" tvg-logo="https://upload.wikimedia.org/wikipedia/tr/3/36/Tivibu_spor_logosu.jpg" group-title="TivibuSpor",Tivibu Spor 2
+#EXTVLCOPT:http-user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_5)
+#EXTVLCOPT:http-referrer=https://monotv523.com/
+https://four.zirvestream14.cfd/yayint2.m3u8
+
+#EXTINF:-1 tvg-id="tivibu_spor" tvg-name="Tivibu Spor 3" tvg-language="Turkish" tvg-country="TR" tvg-logo="https://upload.wikimedia.org/wikipedia/tr/3/36/Tivibu_spor_logosu.jpg" group-title="TivibuSpor",Tivibu Spor 3
+#EXTVLCOPT:http-user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_5)
+#EXTVLCOPT:http-referrer=https://monotv523.com/
+https://four.zirvestream14.cfd/yayint3.m3u8
+
+#EXTINF:-1 tvg-name="TRT 1" tvg-language="Turkish" tvg-country="TR" tvg-id="Trt1" tvg-logo="https://cms-rotf-api.tabii.com/r/int/w500/23846_1-0-465-262.jpeg" group-title="Diğerleri", TRT 1
+https://tv-trt1.medya.trt.com.tr/master.m3u8
+
+#EXTINF:-1 tvg-name="TRT SPOR" tvg-language="Turkish" tvg-country="TR" tvg-id="TrtSpor" tvg-logo="https://cms-rotf-api.tabii.com/r/int/w500/40480_0-0-465-261.jpeg" group-title="Diğerleri", TRT SPOR
+https://tv-trtspor1.medya.trt.com.tr/master.m3u8
+
+#EXTINF:-1 tvg-name="TRT Spor Yıldız" tvg-language="Turkish" tvg-country="TR" tvg-id="trtsporyildiz" tvg-logo="https://cms-tabii-public-image.tabii.com/int/w500/23855_1-0-465-262.jpeg" group-title="Diğerleri",TRT Spor Yıldız
+https://trt.daioncdn.net/trtspor-yildiz/master.m3u8?app=web&platform=trtspor
+
+#EXTINF:-1 tvg-name="TV 8" tvg-language="Turkish" tvg-country="TR" tvg-id="tv8" tvg-logo="https://www.campaigntr.com/wp-content/uploads/2014/09/tv8-logo.png" group-title="Diğerleri",TV 8
+https://tv8-live.daioncdn.net/tv8/tv8.m3u8
+
+#EXTINF:-1 tvg-name="TV 8.5" tvg-language="Turkish" tvg-country="TR" tvg-id="tv8bucuk" tvg-logo="https://www.tvyayinakisi.com/wp-content/uploads/2021/01/tv8.5.jpg" group-title="Diğerleri", TV 8.5
+https://tv8-live.daioncdn.net/tv8bucuk/tv8bucuk.m3u8
+
+#EXTINF:-1 tvg-name="A TV" tvg-language="Turkish" tvg-country="TR" tvg-id="atv" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/4/45/Atv_logo_2010.svg/930px-Atv_logo_2010.svg.png" group-title="Diğerleri", A TV
+https://rnttwmjcin.turknet.ercdn.net/lcpmvefbyo/atv/atv.m3u8
+
+#EXTINF:-1 tvg-name="A Spor" tvg-language="Turkish" tvg-country="TR" tvg-id="aspor" tvg-logo="https://bursasporxcom.teimg.com/crop/1280x720/bursasporx-com/uploads/2024/10/imaj-aspor.jpg" group-title="Diğerleri", A Spor
+https://rnttwmjcin.turknet.ercdn.net/lcpmvefbyo/aspor/aspor.m3u8
+
+#EXTINF:-1 tvg-name="HTSpor" tvg-language="Turkish" tvg-country="TR" tvg-id="htspor" tvg-logo="https://www.htspor.com/images/manifest/social-share-logo.png" group-title="Diğerleri", HTSpor
+https://ciner.daioncdn.net/ht-spor/ht-spor.m3u8?app=web
+
+#EXTINF:-1 tvg-name="Show TV" tvg-language="Turkish" tvg-country="TR" tvg-id="showtv" tvg-logo="https://mo.ciner.com.tr/video/2023/06/15/ver1726038663/8E1C90B3C04F89681637C4909149450C_640x360.jpg" group-title="Diğerleri",Show TV
+https://ciner-live.daioncdn.net/showtv/showtv.m3u8
+        `;
+
+        // The video player element
+        const video = document.getElementById('video');
+        // The message overlay on the video player
+        const statusMessage = document.getElementById('status-message');
+        const channelTitleElement = document.getElementById('channel-title');
+        // The container for the channel list
+        const channelListContainer = document.getElementById('channel-list-container');
+        
+        // Function to parse the M3U content and organize it by group
+        function parseM3U(m3u) {
+            const lines = m3u.split('\n');
+            const groups = {};
+            let currentChannel = {};
+
+            lines.forEach(line => {
+                line = line.trim();
+                if (line.startsWith('#EXTINF')) {
+                    // Extract channel attributes
+                    const attributes = line.match(/(tvg-id|tvg-name|tvg-logo|group-title|tvg-language|tvg-country)="([^"]*)"/g) || [];
+                    const info = {};
+                    attributes.forEach(attr => {
+                        const [key, value] = attr.replace(/"/g, '').split('=');
+                        info[key.replace('-', '_')] = value;
+                    });
+                    
+                    const channelName = line.match(/,(.*)/);
+                    info.name = channelName ? channelName[1].trim() : 'Bilinmeyen Kanal';
+                    currentChannel = info;
+                } else if (line.startsWith('#EXTVLCOPT:')) {
+                    // Extract VLC options (user-agent and referrer)
+                    const [key, value] = line.replace('#EXTVLCOPT:', '').split('=');
+                    if (key.trim() === 'http-user-agent') {
+                        currentChannel.userAgent = value.trim();
+                    }
+                    if (key.trim() === 'http-referrer') {
+                        currentChannel.referrer = value.trim();
+                    }
+                } else if (line.startsWith('http')) {
+                    // This line is the stream URL
+                    currentChannel.url = line;
+                    
+                    // Add the channel to its corresponding group
+                    const groupTitle = currentChannel.group_title || 'Diğerleri';
+                    if (!groups[groupTitle]) {
+                        groups[groupTitle] = [];
+                    }
+                    groups[groupTitle].push(currentChannel);
+                    // Reset currentChannel for the next entry
+                    currentChannel = {};
+                }
+            });
+
+            return groups;
+        }
+
+        // Function to render the parsed channels into the HTML
+        function renderChannels(groups) {
+            channelListContainer.innerHTML = '';
+            for (const groupTitle in groups) {
+                const group = groups[groupTitle];
+                
+                // Create the group header
+                const groupHeader = document.createElement('div');
+                groupHeader.className = 'group-header bg-slate-700 text-white p-4 font-semibold text-lg cursor-pointer rounded-2xl flex items-center justify-between mb-2 hover:bg-slate-600 transition-colors duration-200';
+                groupHeader.innerHTML = `
+                    <span>${groupTitle}</span>
+                    <span class="transform rotate-0 transition-transform duration-300 group-expanded:rotate-180">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                        </svg>
+                    </span>
+                `;
+                channelListContainer.appendChild(groupHeader);
+
+                // Create the channels container for this group
+                const channelsContainer = document.createElement('div');
+                channelsContainer.className = 'channels-container space-y-2 max-h-0 overflow-hidden transition-all duration-500';
+                
+                group.forEach(channel => {
+                    const channelItem = document.createElement('div');
+                    channelItem.className = 'channel-item flex items-center p-3 rounded-2xl bg-slate-700 hover:bg-slate-600 transition-colors duration-200 cursor-pointer';
+                    
+                    channelItem.innerHTML = `
+                        <img src="${channel.tvg_logo || 'https://placehold.co/40x40/1e293b/FFFFFF?text=Logo'}" alt="${channel.name} logo" class="w-10 h-10 rounded-full mr-4 object-contain">
+                        <span class="font-medium text-white text-base truncate">${channel.name}</span>
+                    `;
+
+                    // Store channel data in a data attribute
+                    channelItem.dataset.url = channel.url;
+                    channelItem.dataset.userAgent = channel.userAgent || '';
+                    channelItem.dataset.referrer = channel.referrer || '';
+                    channelItem.dataset.channelName = channel.name;
+                    
+                    channelsContainer.appendChild(channelItem);
+                });
+                
+                channelListContainer.appendChild(channelsContainer);
+
+                // Add click event listener to the group header to toggle channels
+                groupHeader.addEventListener('click', () => {
+                    const isExpanded = channelsContainer.classList.toggle('max-h-0');
+                    if (!isExpanded) {
+                        channelsContainer.style.maxHeight = channelsContainer.scrollHeight + 'px';
+                        groupHeader.classList.add('group-expanded');
+                    } else {
+                        channelsContainer.style.maxHeight = '0px';
+                        groupHeader.classList.remove('group-expanded');
+                    }
+                });
+            }
+        }
+
+        // Function to load and play the stream using Hls.js
+        function loadStream(url, userAgent, referrer, channelName) {
+            statusMessage.style.opacity = '0';
+            video.src = '';
+            
+            // Check if Hls.js is supported in the browser
+            if (Hls.isSupported()) {
+                const hls = new Hls({
+                    // Custom headers for playback
+                    xhrSetup: function (xhr, url) {
+                        if (userAgent) xhr.setRequestHeader('User-Agent', userAgent);
+                        if (referrer) xhr.setRequestHeader('Referer', referrer);
+                    }
+                });
+                hls.loadSource(url);
+                hls.attachMedia(video);
+                hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                    video.play();
+                    channelTitleElement.textContent = channelName;
+                    channelTitleElement.classList.remove('hidden');
+                });
+                hls.on(Hls.Events.ERROR, function (event, data) {
+                    if (data.fatal) {
+                        console.error('Hls.js fatal error:', data);
+                        statusMessage.innerHTML = `<p class="text-red-400 font-bold">Bir hata oluştu: ${data.reason}</p>`;
+                        statusMessage.style.opacity = '1';
+                        channelTitleElement.classList.add('hidden');
+                    }
+                });
+            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                // For Safari and other browsers that natively support HLS
+                video.src = url;
+                video.addEventListener('loadedmetadata', function() {
+                    video.play();
+                    channelTitleElement.textContent = channelName;
+                    channelTitleElement.classList.remove('hidden');
+                });
+                video.addEventListener('error', function() {
+                    console.error('Video element error.');
+                    statusMessage.innerHTML = '<p class="text-red-400 font-bold">Oynatım başarısız oldu. Tarayıcınız HLS yayınını desteklemiyor olabilir veya link bozuk olabilir.</p>';
+                    statusMessage.style.opacity = '1';
+                    channelTitleElement.classList.add('hidden');
+                });
+            } else {
+                // Show an error if HLS is not supported at all
+                statusMessage.innerHTML = '<p class="text-red-400 font-bold">Tarayıcınız HLS yayın akışını desteklemiyor.</p>';
+                statusMessage.style.opacity = '1';
+                channelTitleElement.classList.add('hidden');
+            }
+        }
+
+        // Initialize the app on window load
+        window.onload = function() {
+            const parsedGroups = parseM3U(m3uContent);
+            renderChannels(parsedGroups);
+
+            // Add a single click handler to the parent container for efficiency
+            channelListContainer.addEventListener('click', (event) => {
+                const channelItem = event.target.closest('.channel-item');
+                if (channelItem) {
+                    const url = channelItem.dataset.url;
+                    const userAgent = channelItem.dataset.userAgent;
+                    const referrer = channelItem.dataset.referrer;
+                    const channelName = channelItem.dataset.channelName;
+                    if (url) {
+                        loadStream(url, userAgent, referrer, channelName);
+                        // Highlight the selected channel
+                        document.querySelectorAll('.channel-item').forEach(item => {
+                            item.classList.remove('ring-2', 'ring-indigo-500', 'bg-slate-600');
+                            item.classList.add('bg-slate-700');
+                        });
+                        channelItem.classList.add('ring-2', 'ring-indigo-500', 'bg-slate-600');
+                        channelItem.classList.remove('bg-slate-700');
+                    }
+                }
+            });
+        };
+    </script>
+</body>
+</html>
