@@ -4,11 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Harekat JK Player</title>
-    <!-- Poppins Font -->
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Hls.js for HLS playback -->
     <script src="https://cdn.jsdelivr.net/npm/hls.js@1.4.12"></script>
     <style>
         body {
@@ -16,7 +13,20 @@
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
         }
-        /* Custom scrollbar for channel list */
+        /* Özel arka plan katmanı */
+        #background-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: url('arkaplan.png'); /* Arka plan görseli burada */
+            background-size: cover;
+            background-position: center;
+            opacity: 0.5; /* %50 opaklık */
+            z-index: -1; /* İçeriğin arkasında kalmasını sağlar */
+        }
+        /* Kanal listesi için özel kaydırma çubuğu */
         .channel-list::-webkit-scrollbar {
             width: 8px;
         }
@@ -41,11 +51,10 @@
     </style>
 </head>
 <body class="p-4 md:p-8 flex flex-col items-center">
+    <div id="background-overlay"></div>
     <div class="max-w-4xl w-full flex flex-col gap-8">
-        <!-- Main Video Player Section -->
         <div class="bg-slate-800 rounded-3xl shadow-2xl p-4 md:p-6 border border-slate-700">
             <div class="flex flex-col items-center mb-4">
-                <!-- Logonu buraya ekle. harekat_jk_logo.png adlı dosyayı bu HTML dosyasının yanına koymalısın. -->
                 <img src="harekat_jk_logo.png" alt="Player Logo" class="h-30 md:h-32 w-auto mb-0 rounded-lg">
             </div>
             <div class="relative w-full aspect-video bg-black rounded-2xl overflow-hidden">
@@ -55,15 +64,17 @@
                     <p id="channel-title" class="text-white text-sm md:text-base font-semibold mt-2 hidden"></p>
                 </div>
             </div>
+            <div id="resolution-selector-container" class="mt-4 flex justify-end hidden">
+                <select id="resolution-selector" class="p-2 rounded-lg bg-slate-700 text-white border border-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </select>
+            </div>
         </div>
 
-        <!-- Channel List Section -->
         <div class="bg-slate-800 rounded-3xl shadow-2xl p-4 md:p-6 border border-slate-700">
             <h2 class="text-xl md:text-2xl font-semibold mb-4 text-white">Kanallar
             </h2>
             <div id="channel-list-container" class="channel-list max-h-[70vh] overflow-y-auto">
-                <!-- Channel groups will be rendered here by JavaScript -->
-            </div>
+                </div>
         </div>
     </div>
 
@@ -256,6 +267,9 @@ https://ciner-live.daioncdn.net/showtv/showtv.m3u8
         const channelTitleElement = document.getElementById('channel-title');
         // The container for the channel list
         const channelListContainer = document.getElementById('channel-list-container');
+        // Yeni eklenen çözünürlük seçici elementi
+        const resolutionSelector = document.getElementById('resolution-selector');
+        const resolutionSelectorContainer = document.getElementById('resolution-selector-container');
         
         // Function to parse the M3U content and organize it by group
         function parseM3U(m3u) {
@@ -366,6 +380,10 @@ https://ciner-live.daioncdn.net/showtv/showtv.m3u8
             statusMessage.style.opacity = '0';
             video.src = '';
             
+            // Çözünürlük seçiciyi gizle
+            resolutionSelectorContainer.classList.add('hidden');
+            resolutionSelector.innerHTML = '';
+            
             // Check if Hls.js is supported in the browser
             if (Hls.isSupported()) {
                 const hls = new Hls({
@@ -377,10 +395,28 @@ https://ciner-live.daioncdn.net/showtv/showtv.m3u8
                 });
                 hls.loadSource(url);
                 hls.attachMedia(video);
+
+                // Yeni eklenen kısım: Çözünürlük seviyelerini yükle ve seçiciyi göster
                 hls.on(Hls.Events.MANIFEST_PARSED, function() {
                     video.play();
                     channelTitleElement.textContent = channelName;
                     channelTitleElement.classList.remove('hidden');
+
+                    if (hls.levels.length > 1) {
+                        resolutionSelectorContainer.classList.remove('hidden');
+                        hls.levels.forEach((level, levelIndex) => {
+                            const option = document.createElement('option');
+                            option.value = levelIndex;
+                            option.textContent = `${level.height}p`;
+                            resolutionSelector.appendChild(option);
+                        });
+
+                        resolutionSelector.value = hls.currentLevel;
+
+                        resolutionSelector.addEventListener('change', (e) => {
+                            hls.currentLevel = e.target.value;
+                        });
+                    }
                 });
                 hls.on(Hls.Events.ERROR, function (event, data) {
                     if (data.fatal) {
